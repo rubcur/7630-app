@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7630 — Almacén Digital</title>
+<meta name="theme-color" content="#c0392b">
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --rojo: #c0392b;
+    --rojo-oscuro: #922b21;
+    --gris-fondo: #f4f4f4;
+    --texto: #1a1a1a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--gris-fondo);
+    color: var(--texto);
+  }
+  header {
+    background: var(--rojo);
+    color: white;
+    padding: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 {
+    margin: 0 0 4px 0;
+    font-size: 1.4rem;
+  }
+  header p {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+  .buscador {
+    margin-top: 12px;
+  }
+  .buscador input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 20px;
+    border: none;
+    font-size: 1rem;
+  }
+  nav.categorias {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 12px 16px;
+    background: white;
+    position: sticky;
+    top: 96px;
+    z-index: 9;
+    border-bottom: 1px solid #ddd;
+  }
+  nav.categorias button {
+    flex: 0 0 auto;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--rojo);
+    background: white;
+    color: var(--rojo);
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  nav.categorias button.activa {
+    background: var(--rojo);
+    color: white;
+  }
+  main {
+    padding: 16px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .seccion h2 {
+    font-size: 1.1rem;
+    margin: 20px 0 10px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .tarjeta {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .tarjeta img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: #eee;
+  }
+  .etiqueta {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: #2c3e50;
+    color: white;
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .destacado {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #f1c40f;
+    color: #1a1a1a;
+    font-size: 0.7rem;
+    padding: 3px 6px;
+    border-radius: 50%;
+  }
+  .tarjeta .info {
+    padding: 10px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .tarjeta .nombre {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0 0 6px;
+    flex: 1;
+  }
+  .tarjeta .precio {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--rojo-oscuro);
+    margin: 0 0 8px;
+  }
+  .tarjeta .precio small {
+    display: block;
+    font-weight: 400;
+    font-size: 0.65rem;
+    color: #777;
+  }
+  .tarjeta button.agregar {
+    background: var(--rojo);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .estado {
+    text-align: center;
+    padding: 40px 16px;
+    color: #777;
+  }
+  footer {
+    text-align: center;
+    padding: 24px;
+    color: #999;
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>7630 — Almacén Digital</h1>
+  <p>Vos hacés el pedido. Nosotros lo conseguimos y te lo llevamos.</p>
+  <div class="buscador">
+    <input type="text" id="buscador" placeholder="Buscar productos...">
+  </div>
+</header>
+
+<nav class="categorias" id="nav-categorias">
+  <!-- se llena por JS -->
+</nav>
+
+<main id="contenido">
+  <div class="estado">Cargando catálogo...</div>
+</main>
+
+<footer>
+  7630 Almacén Digital — Necochea
+</footer>
+
+<script>
+const SUPABASE_URL = "https://pembidpaoerwdzilpotz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlbWJpZHBhb2Vyd2R6aWxwb3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMjExMDgsImV4cCI6MjEwNDg5NzEwOH0.LF1FZoRxShmrp1SuEWY03h2Z8KT9VIrX-iBf_qPDSg0";
+
+let categorias = [];
+let productos = [];
+let categoriaActiva = null;
+
+async function supabaseGet(tabla, query = "") {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?${query}`, {
+    headers: {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+    }
+  });
+  if (!res.ok) throw new Error(`Error al cargar ${tabla}: ${res.status}`);
+  return res.json();
+}
+
+function formatoPesos(num) {
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(num);
+}
+
+function renderCategorias() {
+  const nav = document.getElementById("nav-categorias");
+  nav.innerHTML = "";
+  const btnTodas = document.createElement("button");
+  btnTodas.textContent = "Todas";
+  btnTodas.className = categoriaActiva === null ? "activa" : "";
+  btnTodas.onclick = () => { categoriaActiva = null; renderCategorias(); renderProductos(); };
+  nav.appendChild(btnTodas);
+
+  categorias.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.textContent = cat.nombre;
+    btn.className = categoriaActiva === cat.id ? "activa" : "";
+    btn.onclick = () => { categoriaActiva = cat.id; renderCategorias(); renderProductos(); };
+    nav.appendChild(btn);
+  });
+}
+
+function tarjetaProducto(p) {
+  const div = document.createElement("div");
+  div.className = "tarjeta";
+  div.innerHTML = `
+    ${p.etiqueta ? `<span class="etiqueta">${p.etiqueta}</span>` : ""}
+    ${p.destacado ? `<span class="destacado">★</span>` : ""}
+    <img src="${p.foto_url || 'https://placehold.co/300x300?text=7630'}" alt="${p.nombre}">
+    <div class="info">
+      <p class="nombre">${p.nombre}</p>
+      <p class="precio">${formatoPesos(p.precio_publicado)}<small>precio estimado</small></p>
+      <button class="agregar" onclick="agregarAlCarrito('${p.id}')">Agregar</button>
+    </div>
+  `;
+  return div;
+}
+
+function renderProductos(filtroTexto = "") {
+  const contenido = document.getElementById("contenido");
+  contenido.innerHTML = "";
+
+  let lista = productos;
+  if (categoriaActiva) lista = lista.filter(p => p.categoria_id === categoriaActiva);
+  if (filtroTexto) lista = lista.filter(p => p.nombre.toLowerCase().includes(filtroTexto.toLowerCase()));
+
+  if (lista.length === 0) {
+    contenido.innerHTML = `<div class="estado">No hay productos para mostrar todavía.</div>`;
+    return;
+  }
+
+  // agrupar por categoría si se están mostrando "todas"
+  if (!categoriaActiva) {
+    categorias.forEach(cat => {
+      const deEstaCategoria = lista.filter(p => p.categoria_id === cat.id);
+      if (deEstaCategoria.length === 0) return;
+      const seccion = document.createElement("div");
+      seccion.className = "seccion";
+      seccion.innerHTML = `<h2>${cat.nombre}</h2>`;
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      deEstaCategoria.forEach(p => grid.appendChild(tarjetaProducto(p)));
+      seccion.appendChild(grid);
+      contenido.appendChild(seccion);
+    });
+  } else {
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    lista.forEach(p => grid.appendChild(tarjetaProducto(p)));
+    contenido.appendChild(grid);
+  }
+}
+
+function agregarAlCarrito(productoId) {
+  // Etapa siguiente: lógica real de carrito + WhatsApp
+  alert("Pronto vas a poder armar tu pedido acá. ¡Ya casi está!");
+}
+
+async function iniciar() {
+  try {
+    categorias = await supabaseGet("categorias", "select=id,nombre,orden&order=orden.asc");
+    productos = await supabaseGet("productos", "select=id,nombre,categoria_id,foto_url,precio_publicado,destacado,etiqueta,orden&order=orden.asc");
+    renderCategorias();
+    renderProductos();
+  } catch (err) {
+    document.getElementById("contenido").innerHTML =
+      `<div class="estado">No se pudo cargar el catálogo. Probá de nuevo en un rato.</div>`;
+    console.error(err);
+  }
+}
+
+document.getElementById("buscador").addEventListener("input", (e) => {
+  renderProductos(e.target.value);
+});
+
+iniciar();
+</script>
+
+</body>
+</html>
