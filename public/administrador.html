@@ -277,13 +277,13 @@ document.getElementById("btn-crear").onclick = async () => {
   let foto_url = null;
   if (archivoFoto) {
     const nombreArchivo = `${Date.now()}-${archivoFoto.name}`;
-    const { error: errorSubida } = await sb.storage.from("productos").upload(nombreArchivo, archivoFoto);
+    const { error: errorSubida } = await sb.storage.from("Productos").upload(nombreArchivo, archivoFoto);
     if (errorSubida) {
       msg.className = "mensaje error";
       msg.textContent = "Error al subir la foto: " + errorSubida.message;
       return;
     }
-    const { data: urlData } = sb.storage.from("productos").getPublicUrl(nombreArchivo);
+    const { data: urlData } = sb.storage.from("Productos").getPublicUrl(nombreArchivo);
     foto_url = urlData.publicUrl;
   }
 
