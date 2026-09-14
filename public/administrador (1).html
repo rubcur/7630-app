@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7630 — Administrador</title>
+<style>
+  :root {
+    --rojo: #c0392b;
+    --rojo-oscuro: #922b21;
+    --gris-fondo: #f4f4f4;
+    --verde: #27ae60;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--gris-fondo);
+  }
+  header {
+    background: var(--rojo);
+    color: white;
+    padding: 16px;
+  }
+  header h1 { margin: 0; font-size: 1.3rem; }
+  main {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  .caja {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin: 12px 0 4px;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+  }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .btn-primario {
+    background: var(--rojo);
+    color: white;
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+  }
+  .btn-chico {
+    background: #eee;
+    color: #333;
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+  .btn-chico.on { background: var(--verde); color: white; }
+  .btn-chico.destacado.on { background: #f1c40f; color: #1a1a1a; }
+  #panel-login { max-width: 320px; margin: 60px auto; }
+  #panel-app { display: none; }
+  .producto-item {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .producto-item img {
+    width: 56px; height: 56px; object-fit: cover; border-radius: 8px; background: #eee;
+  }
+  .producto-item .datos { flex: 1; }
+  .producto-item .datos .nombre { font-weight: 600; }
+  .producto-item .datos .precio { font-size: 0.85rem; color: #777; }
+  .producto-item .acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mensaje { font-size: 0.85rem; margin-top: 8px; }
+  .mensaje.error { color: var(--rojo); }
+  .mensaje.exito { color: var(--verde); }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; }
+  .top-bar button { background: none; color: white; text-decoration: underline; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="top-bar">
+    <h1>7630 — Administrador</h1>
+    <button id="btn-salir" style="display:none;">Cerrar sesión</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- LOGIN -->
+  <div id="panel-login" class="caja">
+    <h2>Iniciar sesión</h2>
+    <label>Email</label>
+    <input type="email" id="login-email">
+    <label>Contraseña</label>
+    <input type="password" id="login-password">
+    <button class="btn-primario" id="btn-login">Entrar</button>
+    <p class="mensaje error" id="login-error"></p>
+  </div>
+
+  <!-- PANEL PRINCIPAL -->
+  <div id="panel-app">
+
+    <div class="caja">
+      <h2>Nuevo producto</h2>
+      <label>Nombre</label>
+      <input type="text" id="p-nombre">
+      <label>Descripción (opcional)</label>
+      <textarea id="p-descripcion" rows="2"></textarea>
+      <label>Categoría</label>
+      <select id="p-categoria"></select>
+      <label>Precio de referencia (lo que cuesta hoy en el comercio)</label>
+      <input type="number" id="p-precio">
+      <label>Etiqueta (opcional, ej: Anabela)</label>
+      <input type="text" id="p-etiqueta">
+      <label>Foto</label>
+      <input type="file" id="p-foto" accept="image/*">
+      <button class="btn-primario" id="btn-crear">Agregar producto</button>
+      <p class="mensaje" id="crear-mensaje"></p>
+    </div>
+
+    <div class="caja">
+      <h2>Productos cargados</h2>
+      <div id="lista-productos">Cargando...</div>
+    </div>
+
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://pembidpaoerwdzilpotz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlbWJpZHBhb2Vyd2R6aWxwb3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMjExMDgsImV4cCI6MjEwNDg5NzEwOH0.LF1FZoRxShmrp1SuEWY03h2Z8KT9VIrX-iBf_qPDSg0";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let categorias = [];
+let productos = [];
+let editandoId = null;
+
+function mostrarApp() {
+  document.getElementById("panel-login").style.display = "none";
+  document.getElementById("panel-app").style.display = "block";
+  document.getElementById("btn-salir").style.display = "inline";
+  cargarCategorias();
+  cargarProductos();
+}
+
+function mostrarLogin() {
+  document.getElementById("panel-login").style.display = "block";
+  document.getElementById("panel-app").style.display = "none";
+  document.getElementById("btn-salir").style.display = "none";
+}
+
+async function revisarSesion() {
+  const { data } = await sb.auth.getSession();
+  if (data.session) mostrarApp(); else mostrarLogin();
+}
+
+document.getElementById("btn-login").onclick = async () => {
+  const email = document.getElementById("login-email").value;
+  const password = document.getElementById("login-password").value;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  const msg = document.getElementById("login-error");
+  if (error) {
+    msg.textContent = "Email o contraseña incorrectos.";
+  } else {
+    msg.textContent = "";
+    mostrarApp();
+  }
+};
+
+document.getElementById("btn-salir").onclick = async () => {
+  await sb.auth.signOut();
+  mostrarLogin();
+};
+
+async function cargarCategorias() {
+  const { data, error } = await sb.from("categorias").select("*").order("orden");
+  if (error) { console.error(error); return; }
+  categorias = data;
+  const select = document.getElementById("p-categoria");
+  select.innerHTML = categorias.map(c => `<option value="${c.id}">${c.nombre}</option>`).join("");
+}
+
+function formatoPesos(num) {
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(num);
+}
+
+async function cargarProductos() {
+  const cont = document.getElementById("lista-productos");
+  const { data, error } = await sb.from("productos").select("*").order("orden");
+  if (error) { cont.textContent = "Error al cargar productos."; console.error(error); return; }
+  productos = data;
+  if (productos.length === 0) {
+    cont.innerHTML = "<p>Todavía no cargaste productos.</p>";
+    return;
+  }
+  cont.innerHTML = "";
+  productos.forEach(p => {
+    const cat = categorias.find(c => c.id === p.categoria_id);
+    const div = document.createElement("div");
+    div.className = "producto-item";
+
+    if (editandoId === p.id) {
+      const opcionesCategoria = categorias.map(c =>
+        `<option value="${c.id}" ${c.id === p.categoria_id ? "selected" : ""}>${c.nombre}</option>`
+      ).join("");
+      div.innerHTML = `
+        <div style="width:100%">
+          <label>Nombre</label>
+          <input type="text" class="edit-nombre" value="${p.nombre}">
+          <label>Categoría</label>
+          <select class="edit-categoria">${opcionesCategoria}</select>
+          <label>Precio de referencia</label>
+          <input type="number" class="edit-precio" value="${p.precio_referencia}">
+          <label>Etiqueta</label>
+          <input type="text" class="edit-etiqueta" value="${p.etiqueta || ""}">
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <button class="btn-chico guardar-edicion" data-id="${p.id}" style="background:var(--verde); color:white;">Guardar</button>
+            <button class="btn-chico cancelar-edicion">Cancelar</button>
+          </div>
+        </div>
+      `;
+      cont.appendChild(div);
+      return;
+    }
+
+    div.innerHTML = `
+      <img src="${p.foto_url || 'https://placehold.co/100x100?text=7630'}">
+      <div class="datos">
+        <div class="nombre">${p.nombre} ${p.etiqueta ? `<small>(${p.etiqueta})</small>` : ""}</div>
+        <div class="precio">${cat ? cat.nombre : "sin categoría"} — ${formatoPesos(p.precio_publicado)}</div>
+      </div>
+      <div class="acciones">
+        <button class="btn-chico visible ${p.visible ? "on" : ""}" data-id="${p.id}">Visible</button>
+        <button class="btn-chico activo ${p.activo ? "on" : ""}" data-id="${p.id}">Activo</button>
+        <button class="btn-chico destacado ${p.destacado ? "on" : ""}" data-id="${p.id}">★</button>
+        <button class="btn-chico editar" data-id="${p.id}">Editar</button>
+        <button class="btn-chico borrar" data-id="${p.id}">Borrar</button>
+      </div>
+    `;
+    cont.appendChild(div);
+  });
+
+  cont.querySelectorAll(".visible").forEach(btn => btn.onclick = () => toggleCampo(btn.dataset.id, "visible", btn));
+  cont.querySelectorAll(".activo").forEach(btn => btn.onclick = () => toggleCampo(btn.dataset.id, "activo", btn));
+  cont.querySelectorAll(".destacado").forEach(btn => btn.onclick = () => toggleCampo(btn.dataset.id, "destacado", btn));
+  cont.querySelectorAll(".borrar").forEach(btn => btn.onclick = () => borrarProducto(btn.dataset.id));
+  cont.querySelectorAll(".editar").forEach(btn => btn.onclick = () => { editandoId = btn.dataset.id; cargarProductos(); });
+  cont.querySelectorAll(".cancelar-edicion").forEach(btn => btn.onclick = () => { editandoId = null; cargarProductos(); });
+  cont.querySelectorAll(".guardar-edicion").forEach(btn => btn.onclick = () => guardarEdicion(btn.dataset.id));
+}
+
+async function guardarEdicion(id) {
+  const fila = document.querySelector(`.guardar-edicion[data-id="${id}"]`).closest(".producto-item");
+  const nombre = fila.querySelector(".edit-nombre").value.trim();
+  const categoria_id = fila.querySelector(".edit-categoria").value;
+  const precio_referencia = parseFloat(fila.querySelector(".edit-precio").value);
+  const etiqueta = fila.querySelector(".edit-etiqueta").value.trim();
+
+  if (!nombre || !categoria_id || !precio_referencia) {
+    alert("Completá nombre, categoría y precio.");
+    return;
+  }
+
+  const { error } = await sb.from("productos")
+    .update({ nombre, categoria_id, precio_referencia, etiqueta: etiqueta || null })
+    .eq("id", id);
+
+  if (error) { alert("Error al guardar: " + error.message); return; }
+
+  editandoId = null;
+  cargarProductos();
+}
+
+async function toggleCampo(id, campo, btn) {
+  const producto = productos.find(p => p.id === id);
+  const nuevoValor = !producto[campo];
+  const { error } = await sb.from("productos").update({ [campo]: nuevoValor }).eq("id", id);
+  if (error) { alert("Error al actualizar: " + error.message); return; }
+  btn.classList.toggle("on", nuevoValor);
+  producto[campo] = nuevoValor;
+}
+
+async function borrarProducto(id) {
+  if (!confirm("¿Seguro que querés borrar este producto?")) return;
+  const { error } = await sb.from("productos").delete().eq("id", id);
+  if (error) { alert("Error al borrar: " + error.message); return; }
+  cargarProductos();
+}
+
+document.getElementById("btn-crear").onclick = async () => {
+  const msg = document.getElementById("crear-mensaje");
+  msg.className = "mensaje";
+  msg.textContent = "Guardando...";
+
+  const nombre = document.getElementById("p-nombre").value.trim();
+  const descripcion = document.getElementById("p-descripcion").value.trim();
+  const categoria_id = document.getElementById("p-categoria").value;
+  const precio_referencia = parseFloat(document.getElementById("p-precio").value);
+  const etiqueta = document.getElementById("p-etiqueta").value.trim();
+  const archivoFoto = document.getElementById("p-foto").files[0];
+
+  if (!nombre || !categoria_id || !precio_referencia) {
+    msg.className = "mensaje error";
+    msg.textContent = "Completá al menos nombre, categoría y precio.";
+    return;
+  }
+
+  let foto_url = null;
+  if (archivoFoto) {
+    const nombreArchivo = `${Date.now()}-${archivoFoto.name}`;
+    const { error: errorSubida } = await sb.storage.from("Productos").upload(nombreArchivo, archivoFoto);
+    if (errorSubida) {
+      msg.className = "mensaje error";
+      msg.textContent = "Error al subir la foto: " + errorSubida.message;
+      return;
+    }
+    const { data: urlData } = sb.storage.from("Productos").getPublicUrl(nombreArchivo);
+    foto_url = urlData.publicUrl;
+  }
+
+  const { error } = await sb.from("productos").insert({
+    nombre, descripcion: descripcion || null, categoria_id, precio_referencia,
+    etiqueta: etiqueta || null, foto_url, visible: true, activo: true
+  });
+
+  if (error) {
+    msg.className = "mensaje error";
+    msg.textContent = "Error al guardar: " + error.message;
+    return;
+  }
+
+  msg.className = "mensaje exito";
+  msg.textContent = "¡Producto agregado!";
+  document.getElementById("p-nombre").value = "";
+  document.getElementById("p-descripcion").value = "";
+  document.getElementById("p-precio").value = "";
+  document.getElementById("p-etiqueta").value = "";
+  document.getElementById("p-foto").value = "";
+  cargarProductos();
+};
+
+revisarSesion();
+</script>
+
+</body>
+</html>
