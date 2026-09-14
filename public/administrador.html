@@ -154,6 +154,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let categorias = [];
 let productos = [];
+let editandoId = null;
 
 function mostrarApp() {
   document.getElementById("panel-login").style.display = "none";
@@ -218,6 +219,31 @@ async function cargarProductos() {
     const cat = categorias.find(c => c.id === p.categoria_id);
     const div = document.createElement("div");
     div.className = "producto-item";
+
+    if (editandoId === p.id) {
+      const opcionesCategoria = categorias.map(c =>
+        `<option value="${c.id}" ${c.id === p.categoria_id ? "selected" : ""}>${c.nombre}</option>`
+      ).join("");
+      div.innerHTML = `
+        <div style="width:100%">
+          <label>Nombre</label>
+          <input type="text" class="edit-nombre" value="${p.nombre}">
+          <label>Categoría</label>
+          <select class="edit-categoria">${opcionesCategoria}</select>
+          <label>Precio de referencia</label>
+          <input type="number" class="edit-precio" value="${p.precio_referencia}">
+          <label>Etiqueta</label>
+          <input type="text" class="edit-etiqueta" value="${p.etiqueta || ""}">
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <button class="btn-chico guardar-edicion" data-id="${p.id}" style="background:var(--verde); color:white;">Guardar</button>
+            <button class="btn-chico cancelar-edicion">Cancelar</button>
+          </div>
+        </div>
+      `;
+      cont.appendChild(div);
+      return;
+    }
+
     div.innerHTML = `
       <img src="${p.foto_url || 'https://placehold.co/100x100?text=7630'}">
       <div class="datos">
@@ -228,6 +254,7 @@ async function cargarProductos() {
         <button class="btn-chico visible ${p.visible ? "on" : ""}" data-id="${p.id}">Visible</button>
         <button class="btn-chico activo ${p.activo ? "on" : ""}" data-id="${p.id}">Activo</button>
         <button class="btn-chico destacado ${p.destacado ? "on" : ""}" data-id="${p.id}">★</button>
+        <button class="btn-chico editar" data-id="${p.id}">Editar</button>
         <button class="btn-chico borrar" data-id="${p.id}">Borrar</button>
       </div>
     `;
@@ -238,6 +265,31 @@ async function cargarProductos() {
   cont.querySelectorAll(".activo").forEach(btn => btn.onclick = () => toggleCampo(btn.dataset.id, "activo", btn));
   cont.querySelectorAll(".destacado").forEach(btn => btn.onclick = () => toggleCampo(btn.dataset.id, "destacado", btn));
   cont.querySelectorAll(".borrar").forEach(btn => btn.onclick = () => borrarProducto(btn.dataset.id));
+  cont.querySelectorAll(".editar").forEach(btn => btn.onclick = () => { editandoId = btn.dataset.id; cargarProductos(); });
+  cont.querySelectorAll(".cancelar-edicion").forEach(btn => btn.onclick = () => { editandoId = null; cargarProductos(); });
+  cont.querySelectorAll(".guardar-edicion").forEach(btn => btn.onclick = () => guardarEdicion(btn.dataset.id));
+}
+
+async function guardarEdicion(id) {
+  const fila = document.querySelector(`.guardar-edicion[data-id="${id}"]`).closest(".producto-item");
+  const nombre = fila.querySelector(".edit-nombre").value.trim();
+  const categoria_id = fila.querySelector(".edit-categoria").value;
+  const precio_referencia = parseFloat(fila.querySelector(".edit-precio").value);
+  const etiqueta = fila.querySelector(".edit-etiqueta").value.trim();
+
+  if (!nombre || !categoria_id || !precio_referencia) {
+    alert("Completá nombre, categoría y precio.");
+    return;
+  }
+
+  const { error } = await sb.from("productos")
+    .update({ nombre, categoria_id, precio_referencia, etiqueta: etiqueta || null })
+    .eq("id", id);
+
+  if (error) { alert("Error al guardar: " + error.message); return; }
+
+  editandoId = null;
+  cargarProductos();
 }
 
 async function toggleCampo(id, campo, btn) {
