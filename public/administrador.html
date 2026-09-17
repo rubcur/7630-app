@@ -127,8 +127,12 @@
       <textarea id="p-descripcion" rows="2"></textarea>
       <label>Categoría</label>
       <select id="p-categoria"></select>
-      <label>Precio de referencia (lo que cuesta hoy en el comercio)</label>
+      <label>Precio de referencia (o precio final si es Oferta)</label>
       <input type="number" id="p-precio">
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+        <input type="checkbox" id="p-es-oferta" style="width:auto;">
+        Es Oferta 7630 (precio final cerrado, entrega incluida)
+      </label>
       <label>Etiqueta (opcional, ej: Anabela)</label>
       <input type="text" id="p-etiqueta">
       <label>Foto</label>
@@ -230,8 +234,12 @@ async function cargarProductos() {
           <input type="text" class="edit-nombre" value="${p.nombre}">
           <label>Categoría</label>
           <select class="edit-categoria">${opcionesCategoria}</select>
-          <label>Precio de referencia</label>
+          <label>Precio de referencia (o precio final si es Oferta)</label>
           <input type="number" class="edit-precio" value="${p.precio_referencia}">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+            <input type="checkbox" class="edit-es-oferta" style="width:auto;" ${p.es_oferta ? "checked" : ""}>
+            Es Oferta 7630
+          </label>
           <label>Etiqueta</label>
           <input type="text" class="edit-etiqueta" value="${p.etiqueta || ""}">
           <div style="display:flex; gap:8px; margin-top:12px;">
@@ -247,7 +255,7 @@ async function cargarProductos() {
     div.innerHTML = `
       <img src="${p.foto_url || 'https://placehold.co/100x100?text=7630'}">
       <div class="datos">
-        <div class="nombre">${p.nombre} ${p.etiqueta ? `<small>(${p.etiqueta})</small>` : ""}</div>
+        <div class="nombre">${p.nombre} ${p.etiqueta ? `<small>(${p.etiqueta})</small>` : ""} ${p.es_oferta ? `<small style="color:#1e8449;">(Oferta)</small>` : ""}</div>
         <div class="precio">${cat ? cat.nombre : "sin categoría"} — ${formatoPesos(p.precio_publicado)}</div>
       </div>
       <div class="acciones">
@@ -276,6 +284,7 @@ async function guardarEdicion(id) {
   const categoria_id = fila.querySelector(".edit-categoria").value;
   const precio_referencia = parseFloat(fila.querySelector(".edit-precio").value);
   const etiqueta = fila.querySelector(".edit-etiqueta").value.trim();
+  const es_oferta = fila.querySelector(".edit-es-oferta").checked;
 
   if (!nombre || !categoria_id || !precio_referencia) {
     alert("Completá nombre, categoría y precio.");
@@ -283,7 +292,7 @@ async function guardarEdicion(id) {
   }
 
   const { error } = await sb.from("productos")
-    .update({ nombre, categoria_id, precio_referencia, etiqueta: etiqueta || null })
+    .update({ nombre, categoria_id, precio_referencia, etiqueta: etiqueta || null, es_oferta })
     .eq("id", id);
 
   if (error) { alert("Error al guardar: " + error.message); return; }
@@ -318,6 +327,7 @@ document.getElementById("btn-crear").onclick = async () => {
   const categoria_id = document.getElementById("p-categoria").value;
   const precio_referencia = parseFloat(document.getElementById("p-precio").value);
   const etiqueta = document.getElementById("p-etiqueta").value.trim();
+  const es_oferta = document.getElementById("p-es-oferta").checked;
   const archivoFoto = document.getElementById("p-foto").files[0];
 
   if (!nombre || !categoria_id || !precio_referencia) {
@@ -341,7 +351,7 @@ document.getElementById("btn-crear").onclick = async () => {
 
   const { error } = await sb.from("productos").insert({
     nombre, descripcion: descripcion || null, categoria_id, precio_referencia,
-    etiqueta: etiqueta || null, foto_url, visible: true, activo: true
+    etiqueta: etiqueta || null, es_oferta, foto_url, visible: true, activo: true
   });
 
   if (error) {
@@ -356,6 +366,7 @@ document.getElementById("btn-crear").onclick = async () => {
   document.getElementById("p-descripcion").value = "";
   document.getElementById("p-precio").value = "";
   document.getElementById("p-etiqueta").value = "";
+  document.getElementById("p-es-oferta").checked = false;
   document.getElementById("p-foto").value = "";
   cargarProductos();
 };
